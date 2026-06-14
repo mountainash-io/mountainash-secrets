@@ -1,14 +1,18 @@
 """FilesystemStore — secure YAML credential storage on disk (full ClearableStore).
 
-Ported from mountainash_settings.secrets.filesystem.FilesystemBackend.
-Atomicity (transaction) uses fcntl.flock — atomic across processes on a LOCAL
-filesystem only; NOT safe over NFS/CIFS.
+Supersedes mountainash_settings.secrets.filesystem.FilesystemBackend, hardened
+against symlink attacks: every open uses O_NOFOLLOW, and get() opens-by-fd then
+fstats that fd (no check-then-open TOCTOU window). Atomicity (transaction) uses
+fcntl.flock — atomic across processes on a LOCAL filesystem only; NOT safe over
+NFS/CIFS, and cooperative (direct get/set/delete do not take the lock).
 """
 from __future__ import annotations
 
+import errno
 import fcntl
 import os
 import re
+import stat
 import typing as t
 from contextlib import contextmanager
 from pathlib import Path
@@ -63,9 +67,9 @@ def _key_to_paths(base_dir: Path, key: str) -> tuple[Path, Path, Path, Path]:
 class FilesystemStore:
     """Stores records as YAML files with secure (0o600/0o700) permissions.
 
-    Note: a broken symlink (existing link, missing target) reads as absent
-    (``get`` returns None via the ``exists()`` check); a symlink whose target
-    exists is rejected with PermissionError to defeat file-swap attacks.
+    Note: any symlink at the credential path (broken or not) is rejected with
+    PermissionError — O_NOFOLLOW refuses to follow the final component, so a
+    file cannot be swapped for a symlink between the check and the open.
     """
 
     def __init__(self, base_dir: str | Path) -> None:
@@ -73,15 +77,31 @@ class FilesystemStore:
 
     def get(self, key: str) -> SecretRecord | None:
         yaml_path, _, _, _ = _key_to_paths(self.base_dir, key)
-        if not yaml_path.exists():
+        try:
+            fd = os.open(str(yaml_path), os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
             return None
-        if yaml_path.is_symlink():
-            raise PermissionError(f"Credential file is a symlink: {yaml_path}")
-        mode = yaml_path.stat().st_mode
-        if mode & 0o077:
-            raise PermissionError(f"Credential file has unsafe permissions: {yaml_path}")
-        with yaml_path.open("r") as fh:
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise PermissionError(f"Credential file is a symlink: {yaml_path}") from exc
+            raise
+        # Validate the OPENED descriptor before reading — there is no
+        # check-then-open window, and fstat must precede fdopen (fdopen on a
+        # directory fd would raise before our type check could run).
+        fh = None
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode):
+                raise PermissionError(f"Credential file is not a regular file: {yaml_path}")
+            if st.st_mode & 0o077:
+                raise PermissionError(f"Credential file has unsafe permissions: {yaml_path}")
+            fh = os.fdopen(fd, "r")
             data = yaml.safe_load(fh)
+        finally:
+            if fh is not None:
+                fh.close()  # closes the underlying fd
+            else:
+                os.close(fd)  # fdopen never took ownership
         if data is None:
             return None
         if not isinstance(data, dict):
@@ -97,7 +117,11 @@ class FilesystemStore:
         yaml_path.parent.mkdir(parents=True, exist_ok=True)
         os.chmod(str(yaml_path.parent), 0o700)
         try:
-            fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            fd = os.open(
+                str(tmp_path),
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+                0o600,
+            )
             with os.fdopen(fd, "w") as fh:
                 yaml.safe_dump(data, fh)
             os.replace(str(tmp_path), str(yaml_path))
@@ -114,7 +138,11 @@ class FilesystemStore:
             yaml_path.unlink()
         tombstone_path.parent.mkdir(parents=True, exist_ok=True)
         os.chmod(str(tombstone_path.parent), 0o700)
-        fd = os.open(str(tombstone_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        fd = os.open(
+            str(tombstone_path),
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+            0o600,
+        )
         os.close(fd)
 
     def is_cleared(self, key: str) -> bool:
@@ -126,7 +154,7 @@ class FilesystemStore:
         _, _, _, lock_path = _key_to_paths(self.base_dir, key)
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         os.chmod(str(lock_path.parent), 0o700)
-        fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT, 0o600)
+        fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
             yield

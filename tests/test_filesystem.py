@@ -83,5 +83,25 @@ def test_non_mapping_on_disk_raises(tmp_path):
         s.get("k")
 
 
+def test_set_rejects_symlinked_temp_file(tmp_path):
+    # A pre-planted symlink at the temp path must NOT be followed (O_NOFOLLOW),
+    # so the secret is never written through it to an attacker-chosen target.
+    s = FilesystemStore(tmp_path)
+    target = tmp_path / "target.txt"
+    (tmp_path / ".k.tmp").symlink_to(target)
+    with pytest.raises(OSError):
+        s.set("k", {"token": "secret"})
+    assert not target.exists()
+
+
+def test_get_rejects_non_regular_file(tmp_path):
+    # A directory (or other non-regular file) where a credential file is
+    # expected is rejected rather than read.
+    s = FilesystemStore(tmp_path)
+    (tmp_path / "d.yaml").mkdir(mode=0o700)
+    with pytest.raises(PermissionError):
+        s.get("d")
+
+
 def test_satisfies_clearable_store(tmp_path):
     assert isinstance(FilesystemStore(tmp_path), ClearableStore)
