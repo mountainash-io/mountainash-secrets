@@ -1,5 +1,4 @@
 import pytest
-
 from mountainash_secrets.core.errors import CapabilityError, ResolverError
 from mountainash_secrets.core.protocols import ClearableStore, SecretReader
 from mountainash_secrets.core.resolver import RegistryResolver

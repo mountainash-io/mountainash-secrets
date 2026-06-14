@@ -1,7 +1,6 @@
 import os
 
 import pytest
-
 from mountainash_secrets.core.protocols import ClearableStore
 from mountainash_secrets.stores.filesystem import FilesystemStore
 

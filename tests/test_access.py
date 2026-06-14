@@ -1,5 +1,4 @@
 import pytest
-
 from mountainash_secrets.core.access import require
 from mountainash_secrets.core.errors import SecretNotFoundError
 from mountainash_secrets.stores.memory import InMemoryStore

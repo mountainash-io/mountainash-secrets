@@ -3,7 +3,6 @@ import threading
 import time
 
 import pytest
-
 from mountainash_secrets.stores.filesystem import FilesystemStore
 from mountainash_secrets.stores.memory import InMemoryStore
 from mountainash_secrets.stores.namespaced import NamespacedStore
