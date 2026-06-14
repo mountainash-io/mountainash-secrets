@@ -32,6 +32,8 @@ class InMemoryStore:
         return copy.deepcopy(value) if value is not None else None
 
     def set(self, key: str, data: SecretRecord) -> None:
+        if not isinstance(data, dict):
+            raise ValueError(f"SecretRecord must be a mapping, got {type(data).__name__}")
         self._data[key] = copy.deepcopy(data)
         self._cleared.discard(key)
 

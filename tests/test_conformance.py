@@ -85,3 +85,11 @@ def test_namespace_isolation_over_shared_store(store):
     cred.set("github", {"password": "P"})
     assert oauth.get("github") == {"token": "T"}
     assert cred.get("github") == {"password": "P"}
+
+
+@pytest.mark.parametrize("bad", [None, ["a"], "scalar", 42])
+def test_set_rejects_non_mapping(store, bad):
+    # A present key must always map to a non-None record (spec §4.2/§6), so
+    # set() rejects non-mapping values instead of writing a ghost/corrupt entry.
+    with pytest.raises(ValueError):
+        store.set("k", bad)

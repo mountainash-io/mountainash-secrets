@@ -91,6 +91,8 @@ class FilesystemStore:
         return data
 
     def set(self, key: str, data: SecretRecord) -> None:
+        if not isinstance(data, dict):
+            raise ValueError(f"SecretRecord must be a mapping, got {type(data).__name__}")
         yaml_path, tmp_path, tombstone_path, _ = _key_to_paths(self.base_dir, key)
         yaml_path.parent.mkdir(parents=True, exist_ok=True)
         os.chmod(str(yaml_path.parent), 0o700)
