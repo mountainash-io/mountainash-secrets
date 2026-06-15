@@ -3,11 +3,12 @@ from .__version__ import __version__
 from .core.access import require
 from .core.errors import (
     SecretCapabilityError,
-    SecretResolverError,
     SecretNotFoundError,
+    SecretResolverError,
     SecretStoreError,
     SecretStoreUnavailableError,
 )
+from .core.keys import to_key_segment
 from .core.protocols import (
     ClearableSecretStore,
     JSONValue,
@@ -42,4 +43,5 @@ __all__ = [
     "EnvReader",
     "NamespacedSecretStore",
     "require",
+    "to_key_segment",
 ]
