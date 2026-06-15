@@ -7,24 +7,24 @@ def test_public_symbols_are_exported():
         # protocols
         "SecretReader",
         "SecretWriter",
-        "ClearableStore",
-        "VersionedReader",
+        "ClearableSecretStore",
+        "VersionedSecretReader",
         "SecretRecord",
         "JSONValue",
         # resolver
         "SecretStoreResolver",
-        "RegistryResolver",
+        "SecretRegistryResolver",
         # errors
         "SecretStoreError",
-        "ResolverError",
-        "CapabilityError",
+        "SecretResolverError",
+        "SecretCapabilityError",
         "StoreUnavailableError",
         "SecretNotFoundError",
         # stores
-        "InMemoryStore",
-        "FilesystemStore",
+        "InMemorySecretStore",
+        "FilesystemSecretStore",
         "EnvReader",
-        "NamespacedStore",
+        "NamespacedSecretStore",
         # access
         "require",
     }

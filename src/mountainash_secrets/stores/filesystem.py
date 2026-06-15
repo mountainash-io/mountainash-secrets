@@ -26,7 +26,7 @@ if t.TYPE_CHECKING:
 
     from ..core.protocols import SecretRecord
 
-__all__ = ["FilesystemStore"]
+__all__ = ["FilesystemSecretStore"]
 
 _VALID_SEGMENT = re.compile(r"^[a-z0-9_]+$")
 
