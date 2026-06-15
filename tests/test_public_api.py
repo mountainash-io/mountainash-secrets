@@ -18,7 +18,7 @@ def test_public_symbols_are_exported():
         "SecretStoreError",
         "SecretResolverError",
         "SecretCapabilityError",
-        "StoreUnavailableError",
+        "SecretStoreUnavailableError",
         "SecretNotFoundError",
         # stores
         "InMemorySecretStore",
