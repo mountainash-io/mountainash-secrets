@@ -8,10 +8,10 @@ from __future__ import annotations
 import threading
 import typing as t
 
-from .errors import CapabilityError, ResolverError
+from .errors import SecretCapabilityError, SecretResolverError
 from .protocols import SecretReader
 
-__all__ = ["SecretStoreResolver", "RegistryResolver"]
+__all__ = ["SecretStoreResolver", "SecretRegistryResolver"]
 
 C = t.TypeVar("C", bound=SecretReader)
 

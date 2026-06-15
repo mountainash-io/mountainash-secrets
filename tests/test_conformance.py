@@ -3,7 +3,7 @@ import threading
 import time
 
 import pytest
-from mountainash_secrets.stores.filesystem import FilesystemStore
+from mountainash_secrets.stores.filesystem import FilesystemSecretStore
 from mountainash_secrets.stores.memory import InMemorySecretStore
 from mountainash_secrets.stores.namespaced import NamespacedSecretStore
 
@@ -12,7 +12,7 @@ from mountainash_secrets.stores.namespaced import NamespacedSecretStore
 def store(request, tmp_path):
     if request.param == "memory":
         return InMemorySecretStore()
-    return FilesystemStore(tmp_path)
+    return FilesystemSecretStore(tmp_path)
 
 
 def test_set_get_round_trips_nested_json_record(store):
