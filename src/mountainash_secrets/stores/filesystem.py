@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 
-from ..core.errors import StoreUnavailableError
+from ..core.errors import SecretStoreUnavailableError
 
 if t.TYPE_CHECKING:
     from collections.abc import Iterator
@@ -64,7 +64,7 @@ def _key_to_paths(base_dir: Path, key: str) -> tuple[Path, Path, Path, Path]:
     return yaml_path, tmp_path, tombstone_path, lock_path
 
 
-class FilesystemStore:
+class FilesystemSecretStore:
     """Stores records as YAML files with secure (0o600/0o700) permissions.
 
     Note: any symlink at the credential path (broken or not) is rejected with
@@ -105,7 +105,7 @@ class FilesystemStore:
         if data is None:
             return None
         if not isinstance(data, dict):
-            raise StoreUnavailableError(
+            raise SecretStoreUnavailableError(
                 f"Corrupt secret record (not a mapping): {yaml_path}"
             )
         return data

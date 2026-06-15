@@ -13,8 +13,8 @@ __all__ = [
     "SecretRecord",
     "SecretReader",
     "SecretWriter",
-    "ClearableStore",
-    "VersionedReader",
+    "ClearableSecretStore",
+    "VersionedSecretReader",
 ]
 
 JSONValue = t.Union[
@@ -47,14 +47,14 @@ class SecretWriter(SecretReader, t.Protocol):
 
 
 @t.runtime_checkable
-class ClearableStore(SecretWriter, t.Protocol):
+class ClearableSecretStore(SecretWriter, t.Protocol):
     """Distinguishes 'deliberately cleared' (tombstone) from 'never set'."""
 
     def is_cleared(self, key: str) -> bool: ...
 
 
 @t.runtime_checkable
-class VersionedReader(SecretReader, t.Protocol):
+class VersionedSecretReader(SecretReader, t.Protocol):
     """Vault-style versioned read (additive; not all stores support it)."""
 
     def get_version(self, key: str, version: str) -> SecretRecord | None: ...

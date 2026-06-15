@@ -2,44 +2,44 @@
 from .__version__ import __version__
 from .core.access import require
 from .core.errors import (
-    CapabilityError,
-    ResolverError,
+    SecretCapabilityError,
+    SecretResolverError,
     SecretNotFoundError,
     SecretStoreError,
-    StoreUnavailableError,
+    SecretStoreUnavailableError,
 )
 from .core.protocols import (
-    ClearableStore,
+    ClearableSecretStore,
     JSONValue,
     SecretReader,
     SecretRecord,
     SecretWriter,
-    VersionedReader,
+    VersionedSecretReader,
 )
-from .core.resolver import RegistryResolver, SecretStoreResolver
+from .core.resolver import SecretRegistryResolver, SecretStoreResolver
 from .stores.env import EnvReader
-from .stores.filesystem import FilesystemStore
-from .stores.memory import InMemoryStore
-from .stores.namespaced import NamespacedStore
+from .stores.filesystem import FilesystemSecretStore
+from .stores.memory import InMemorySecretStore
+from .stores.namespaced import NamespacedSecretStore
 
 __all__ = [
     "__version__",
     "SecretReader",
     "SecretWriter",
-    "ClearableStore",
-    "VersionedReader",
+    "ClearableSecretStore",
+    "VersionedSecretReader",
     "SecretRecord",
     "JSONValue",
     "SecretStoreResolver",
-    "RegistryResolver",
+    "SecretRegistryResolver",
     "SecretStoreError",
-    "ResolverError",
-    "CapabilityError",
-    "StoreUnavailableError",
+    "SecretResolverError",
+    "SecretCapabilityError",
+    "SecretStoreUnavailableError",
     "SecretNotFoundError",
-    "InMemoryStore",
-    "FilesystemStore",
+    "InMemorySecretStore",
+    "FilesystemSecretStore",
     "EnvReader",
-    "NamespacedStore",
+    "NamespacedSecretStore",
     "require",
 ]

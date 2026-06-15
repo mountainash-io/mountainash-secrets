@@ -6,9 +6,9 @@ from __future__ import annotations
 
 __all__ = [
     "SecretStoreError",
-    "ResolverError",
-    "CapabilityError",
-    "StoreUnavailableError",
+    "SecretResolverError",
+    "SecretCapabilityError",
+    "SecretStoreUnavailableError",
     "SecretNotFoundError",
 ]
 
@@ -17,15 +17,15 @@ class SecretStoreError(Exception):
     """Base of every error raised by this package."""
 
 
-class ResolverError(SecretStoreError):
+class SecretResolverError(SecretStoreError):
     """Raised when a store name is unknown or already registered."""
 
 
-class CapabilityError(SecretStoreError):
+class SecretCapabilityError(SecretStoreError):
     """Raised when a named store lacks a requested capability rung."""
 
 
-class StoreUnavailableError(SecretStoreError):
+class SecretStoreUnavailableError(SecretStoreError):
     """Raised when a backend/transport/IO operation fails."""
 
 

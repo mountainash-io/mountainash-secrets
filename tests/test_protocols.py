@@ -1,10 +1,10 @@
 from contextlib import contextmanager
 
 from mountainash_secrets.core.protocols import (
-    ClearableStore,
+    ClearableSecretStore,
     SecretReader,
     SecretWriter,
-    VersionedReader,
+    VersionedSecretReader,
 )
 
 
@@ -35,19 +35,19 @@ def test_reader_only_is_reader_not_writer():
     obj = _ReaderOnly()
     assert isinstance(obj, SecretReader)
     assert not isinstance(obj, SecretWriter)
-    assert not isinstance(obj, ClearableStore)
+    assert not isinstance(obj, ClearableSecretStore)
 
 
 def test_full_store_satisfies_clearable_and_below():
     obj = _FullStore()
     assert isinstance(obj, SecretReader)
     assert isinstance(obj, SecretWriter)
-    assert isinstance(obj, ClearableStore)
+    assert isinstance(obj, ClearableSecretStore)
 
 
 def test_full_store_is_not_versioned():
     # No get_version/list_versions → not a VersionedReader.
-    assert not isinstance(_FullStore(), VersionedReader)
+    assert not isinstance(_FullStore(), VersionedSecretReader)
 
 
 def test_plain_object_is_no_capability():

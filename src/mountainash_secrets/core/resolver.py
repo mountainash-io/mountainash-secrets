@@ -23,7 +23,7 @@ class SecretStoreResolver(t.Protocol):
     def resolve_as(self, name: str, capability: type[C]) -> C: ...
 
 
-class RegistryResolver:
+class SecretRegistryResolver:
     """Resolves a name to a PRE-BUILT store. Never constructs or authenticates.
 
     register()/replace are composition-time operations; resolve()/resolve_as()
@@ -38,7 +38,7 @@ class RegistryResolver:
     def register(self, name: str, store: SecretReader, *, replace: bool = False) -> None:
         with self._lock:
             if name in self._stores and not replace:
-                raise ResolverError(f"Store already registered: {name!r}")
+                raise SecretResolverError(f"Store already registered: {name!r}")
             self._stores[name] = store
 
     def resolve(self, name: str) -> SecretReader:
@@ -46,12 +46,12 @@ class RegistryResolver:
             try:
                 return self._stores[name]
             except KeyError:
-                raise ResolverError(f"No store registered under name: {name!r}") from None
+                raise SecretResolverError(f"No store registered under name: {name!r}") from None
 
     def resolve_as(self, name: str, capability: type[C]) -> C:
         store = self.resolve(name)
         if not isinstance(store, capability):
-            raise CapabilityError(
+            raise SecretCapabilityError(
                 f"Store {name!r} does not satisfy {capability.__name__}"
             )
         return t.cast(C, store)

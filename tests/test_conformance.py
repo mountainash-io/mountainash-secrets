@@ -4,14 +4,14 @@ import time
 
 import pytest
 from mountainash_secrets.stores.filesystem import FilesystemStore
-from mountainash_secrets.stores.memory import InMemoryStore
-from mountainash_secrets.stores.namespaced import NamespacedStore
+from mountainash_secrets.stores.memory import InMemorySecretStore
+from mountainash_secrets.stores.namespaced import NamespacedSecretStore
 
 
 @pytest.fixture(params=["memory", "filesystem"])
 def store(request, tmp_path):
     if request.param == "memory":
-        return InMemoryStore()
+        return InMemorySecretStore()
     return FilesystemStore(tmp_path)
 
 
@@ -79,8 +79,8 @@ def test_transaction_serializes_concurrent_read_modify_write(store):
 
 
 def test_namespace_isolation_over_shared_store(store):
-    oauth = NamespacedStore(store, "oauth")
-    cred = NamespacedStore(store, "cred")
+    oauth = NamespacedSecretStore(store, "oauth")
+    cred = NamespacedSecretStore(store, "cred")
     oauth.set("github", {"token": "T"})
     cred.set("github", {"password": "P"})
     assert oauth.get("github") == {"token": "T"}

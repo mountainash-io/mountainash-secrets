@@ -6,19 +6,19 @@ import typing as t
 if t.TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
-    from ..core.protocols import ClearableStore, SecretRecord
+    from ..core.protocols import ClearableSecretStore, SecretRecord
 
-__all__ = ["NamespacedStore"]
+__all__ = ["NamespacedSecretStore"]
 
 
-class NamespacedStore:
+class NamespacedSecretStore:
     """Prepends ``{prefix}.`` to every key and forwards to a wrapped ClearableStore.
 
     Lets two consumers (e.g. OAuth tokens under 'oauth', settings credentials
     under 'cred') share one underlying store without key collisions.
     """
 
-    def __init__(self, inner: ClearableStore, prefix: str) -> None:
+    def __init__(self, inner: ClearableSecretStore, prefix: str) -> None:
         self._inner = inner
         self._prefix = prefix
 

@@ -1,4 +1,4 @@
-"""InMemoryStore — full ClearableStore; the canonical single-process test double."""
+"""InMemoryStore — full ClearableSecretStore; the canonical single-process test double."""
 from __future__ import annotations
 
 import copy
@@ -11,10 +11,10 @@ if t.TYPE_CHECKING:
 
     from ..core.protocols import SecretRecord
 
-__all__ = ["InMemoryStore"]
+__all__ = ["InMemorySecretStore"]
 
 
-class InMemoryStore:
+class InMemorySecretStore:
     """Stores records in a dict. Single-process; transaction uses per-key locks.
 
     Records are deep-copied on set and get so callers cannot mutate stored state
