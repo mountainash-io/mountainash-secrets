@@ -11,7 +11,6 @@ from __future__ import annotations
 import errno
 import fcntl
 import os
-import re
 import stat
 import typing as t
 from contextlib import contextmanager
@@ -20,6 +19,7 @@ from pathlib import Path
 import yaml
 
 from ..core.errors import SecretStoreUnavailableError
+from ..core.keys import validate_segment as _validate_segment
 
 if t.TYPE_CHECKING:
     from collections.abc import Iterator
@@ -27,13 +27,6 @@ if t.TYPE_CHECKING:
     from ..core.protocols import SecretRecord
 
 __all__ = ["FilesystemSecretStore"]
-
-_VALID_SEGMENT = re.compile(r"^[a-z0-9_]+$")
-
-
-def _validate_segment(name: str) -> None:
-    if not _VALID_SEGMENT.match(name):
-        raise ValueError(f"Invalid key segment: {name!r} — must match [a-z0-9_]+")
 
 
 def _key_to_paths(base_dir: Path, key: str) -> tuple[Path, Path, Path, Path]:

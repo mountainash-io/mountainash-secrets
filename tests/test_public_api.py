@@ -27,6 +27,8 @@ def test_public_symbols_are_exported():
         "NamespacedSecretStore",
         # access
         "require",
+        # keys
+        "to_key_segment",
     }
     assert expected.issubset(set(ms.__all__))
     for name in expected:
