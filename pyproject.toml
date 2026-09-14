@@ -8,14 +8,18 @@ dynamic = ["version"]
 description = "Mountain Ash — capability-graded secret-store port"
 readme = "README.md"
 requires-python = ">=3.10"
+keywords = []
 authors = [
     { name = "Nathaniel Ramm", email = "nathaniel.ramm@discretedatascience.com" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
     "pyyaml>=6.0",
@@ -26,12 +30,18 @@ aws = ["boto3>=1.29.0"]
 azure = ["azure-keyvault-secrets>=4.8.0", "azure-identity>=1.16.0"]
 gcp = ["google-cloud-secret-manager>=2.18.0"]
 hashicorp = ["hvac>=2.1.0"]
+all = [
+    "boto3>=1.29.0",
+    "azure-keyvault-secrets>=4.8.0",
+    "azure-identity>=1.16.0",
+    "google-cloud-secret-manager>=2.18.0",
+    "hvac>=2.1.0",
+]
 
-[tool.hatch.version]
-path = "src/mountainash_secrets/__version__.py"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/mountainash_secrets"]
+[project.urls]
+Documentation = "https://github.com/mountainash-io/mountainash-secrets#readme"
+Issues = "https://github.com/mountainash-io/mountainash-secrets/issues"
+Source = "https://github.com/mountainash-io/mountainash-secrets"
 
 [tool.ruff]
 line-length = 100
@@ -40,7 +50,31 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
 
+#================
+# Tool: Coverage
+#================
 [tool.coverage.run]
 source_pkgs = ["mountainash_secrets", "tests"]
 branch = true
+parallel = true
 omit = ["src/mountainash_secrets/__version__.py"]
+
+[tool.coverage.paths]
+mountainash_secrets = [
+    "src/mountainash_secrets",
+    "*/mountainash-secrets/src/mountainash_secrets",
+]
+tests = ["tests", "*/mountainash-secrets/tests"]
+
+[tool.coverage.report]
+exclude_lines = ["no cov", "if __name__ == .__main__:", "if TYPE_CHECKING:"]
+
+#================
+# Tool: Mypy
+#================
+[tool.mypy]
+# Optional cloud SDKs (boto3/azure/google/hvac) are not installed in the type
+# env, and internal mountainash siblings ship no py.typed marker — treat
+# unresolved/untyped third-party imports as Any rather than noise.
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]

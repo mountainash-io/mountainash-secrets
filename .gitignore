@@ -12,8 +12,10 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .coverage
-.coverage.*
+coverage.*
 htmlcov/
+junit.*
+uv.lock
 
 # Virtual environments
 .venv/
