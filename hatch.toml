@@ -7,6 +7,9 @@ path = "src/mountainash_secrets/__version__.py"
 [build.targets.wheel]
 packages = ["src/mountainash_secrets"]
 
+[build.targets.sdist]
+include = ["/src", "/pyproject.toml", "/hatch.toml", "/README.md", "/LICENSE"]
+
 
 #================
 # Env: dev
@@ -14,7 +17,7 @@ packages = ["src/mountainash_secrets"]
 # mountainash-secrets is a leaf package — it authenticates nothing and depends
 # on no sibling mountainash packages, so no {root:uri} editable installs here.
 [envs.dev]
-python = "3.12" #,  "3.11", "3.10"
+python = "3.12"
 installer = "uv"
 path = ".venv"
 dependencies = []
@@ -52,7 +55,7 @@ dependencies = []
 #================
 [[envs.test_github.matrix]]
 installer = ["uv"]
-python = ["3.12"] #, "3.11", "3.10"
+python = ["3.12"]
 
 [envs.test_github]
 installer = "uv"
@@ -70,7 +73,7 @@ test-cov = "pytest --cov --junitxml=junit.xml -o junit_family=legacy --cov-repor
 # Env: test
 #================
 [[envs.test.matrix]]
-python = ["3.12"] #,  "3.11", "3.10"
+python = ["3.12"]
 installer = ["uv"]
 
 [envs.test]
