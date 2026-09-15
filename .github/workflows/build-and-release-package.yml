@@ -2,7 +2,8 @@ name: Build, Verify, and Publish Package
 
 on:
   pull_request:
-    branches: [main, develop]
+    types: [opened, synchronize, reopened, closed]
+    branches: [main, develop, 'release/**', 'feature/**', 'bugfix/**', 'hotfix/**']
   workflow_dispatch:
     inputs:
       publish:
@@ -10,6 +11,17 @@ on:
         required: true
         default: false
         type: boolean
+      release:
+        description: Publish verified artifacts to GitHub and mountainash-wheels
+        required: true
+        default: false
+        type: boolean
+      release_type:
+        description: MountainAsh release type (PyPI requires production)
+        required: true
+        default: production
+        type: choice
+        options: [production, rc, beta]
 
 permissions:
   contents: read
@@ -17,6 +29,7 @@ permissions:
 jobs:
   build-and-verify:
     name: Build and verify candidate
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-24.04
     outputs:
       dist-artifact-id: ${{ steps.upload-dist.outputs.artifact-id }}
@@ -38,7 +51,40 @@ jobs:
         run: |
           mkdir -p "$RELEASE_ROOT/home"
           env -i PATH="$PATH" HOME="$RELEASE_ROOT/home" PIP_CONFIG_FILE=/dev/null PIP_INDEX_URL=https://pypi.org/simple PIP_DISABLE_PIP_VERSION_CHECK=1 \
-            python -I -m pip install --isolated --no-input --index-url https://pypi.org/simple build twine
+            python -I -m pip install --isolated --no-input --index-url https://pypi.org/simple build twine hatch
+
+      - name: Set release version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          RELEASE: ${{ inputs.release }}
+          PUBLISH: ${{ inputs.publish }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          python -I - <<'PY'
+          import ast
+          import os
+          from pathlib import Path
+          from packaging.version import Version
+
+          path = Path('src/mountainash_secrets/__version__.py')
+          base = ast.literal_eval(ast.parse(path.read_text()).body[0].value)
+          release_type = os.environ['RELEASE_TYPE']
+          if os.environ['EVENT_NAME'] == 'pull_request':
+              target = os.environ['TARGET_BRANCH']
+              release_type = 'production' if target == 'main' else 'rc' if target == 'develop' else 'beta'
+          if os.environ['PUBLISH'] == 'true' and (
+              os.environ['TARGET_BRANCH'] != 'main' or release_type != 'production'
+          ):
+              raise SystemExit('PyPI publication requires a production release on main')
+          releasing = any(os.environ[key] == 'true' for key in ('MERGED', 'RELEASE', 'PUBLISH'))
+          if releasing and release_type != 'production':
+              suffix = 'rc' if release_type == 'rc' else 'b'
+              version = f'{Version(base).base_version}{suffix}{os.environ["RUN_NUMBER"]}'
+              path.write_text(f'__version__ = "{version}"\n')
+          PY
 
       - name: Build exactly one wheel and sdist
         env:
@@ -67,6 +113,7 @@ jobs:
           import zipfile
           from email.parser import Parser
           from pathlib import Path
+          from packaging.version import Version
 
           dist, evidence, expected_distribution = map(Path, sys.argv[1:])
           wheel, = dist.glob('*.whl')
@@ -91,6 +138,7 @@ jobs:
               'run_id': '${{ github.run_id }}',
               'run_attempt': '${{ github.run_attempt }}',
               'files': files,
+              'prerelease': Version(metadata['Version']).is_prerelease,
           }
           (evidence / 'release.json').write_text(json.dumps(release, indent=2, sort_keys=True) + '\n')
           (evidence / 'SHA256SUMS').write_text(''.join(f'{digest}  {name}\n' for name, digest in sorted(files.items())))
@@ -203,6 +251,15 @@ jobs:
           PY
           )
 
+      - name: Generate MountainAsh SBOMs
+        env:
+          RELEASE_ROOT: ${{ runner.temp }}/mountainash-release
+        run: |
+          hatch run build_github:sbom-all
+          hatch run build_github:export-requirements
+          hatch run build_github:sbom-direct
+          cp sbom-full.json sbom-direct.json "$RELEASE_ROOT/evidence/"
+
       - name: Upload approved distributions
         id: upload-dist
         uses: actions/upload-artifact@v4
@@ -220,6 +277,17 @@ jobs:
           path: ${{ runner.temp }}/mountainash-release/evidence
           if-no-files-found: error
           retention-days: 30
+
+  publish-mountainash:
+    if: github.event.pull_request.merged == true || (github.event_name == 'workflow_dispatch' && inputs.release)
+    needs: build-and-verify
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-mountainash.yml
+    with:
+      dist-artifact-id: ${{ fromJSON(needs.build-and-verify.outputs.dist-artifact-id) }}
+      evidence-artifact-id: ${{ fromJSON(needs.build-and-verify.outputs.evidence-artifact-id) }}
+    secrets: inherit
 
   preflight-pypi-environment:
     name: Require protected PyPI environment

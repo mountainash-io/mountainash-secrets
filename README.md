@@ -13,8 +13,43 @@ See `docs/superpowers/specs/2026-06-14-secrets-store-port-design.md`.
 
 ## Candidate verification and publishing
 
-Public PyPI publication remains unconfirmed. `build-and-release-package.yml` builds candidates for PRs targeting `main`/`develop` and for manual runs. It verifies the wheel and sdist-derived wheel in fresh external Python 3.12 environments, with public PyPI dependencies and recorded module origins.
+CI follows the MountainAsh PR/release conventions: pytest with coverage and Codecov,
+Ruff, Radon, source-branch validation for `main`, and a release build-environment
+check. Secrets is a leaf package, so no sibling checkouts, dependency manifest, or
+private-dependency bootstrap is needed. Its core dependency is public PyYAML.
 
-Publication requires separate authorization: configure the existing `pypi` GitHub environment with human reviewers and a custom deployment policy allowing only the `main` branch, and configure PyPI Trusted Publishing for this repository, workflow filename `build-and-release-package.yml`, and environment `pypi`. A pending publisher does not reserve the project name.
+`build-and-release-package.yml` builds one wheel and sdist, verifies the candidate
+and sdist-derived wheel in fresh external Python 3.12 environments, and records
+public dependency sources, `pip check`, module origins, and artifact hashes.
+It also generates full/direct JSON SBOMs through `build_github`.
 
-Prepare the final version in source through the normal reviewed release PR. Dispatch on `main` with `publish=true`, review the candidate hashes/evidence, then approve the environment. The job uploads the exact same-run wheel/sdist without rebuilding or `skip-existing`. Public file/hash and install/import confirmation is required before calling the release published. The default `publish=false` produces only a candidate.
+| Trigger | GitHub release and wheels PR | PyPI |
+| --- | --- | --- |
+| Open or updated PR | No; build and verify only | No |
+| Merged PR | Yes | No |
+| Manual, default inputs | No; build and verify only | No |
+| Manual, `release=true` | Yes | Only if separately enabled |
+| Manual on `main`, `publish=true` | Only if `release=true` | Yes, after approval |
+
+Merged PRs to `main` use the reviewed source version. Merges to `develop` produce
+`rc<run_number>` versions; merges to other configured branches produce
+`b<run_number>` versions. Manual MountainAsh releases choose `release_type`
+(`production`, `rc`, or `beta`). Build-only suffixes are never committed.
+
+GitHub releases contain the verified wheel, sdist, and SBOMs. The distribution
+workflow opens a release-branch PR targeting `mountainash-wheels/develop`, without
+pushing directly to `develop` or `main`. Configure `CI_APP_ID` and
+`CI_APP_PRIVATE_KEY` for a GitHub App with contents/pull-request write access to
+`mountainash-wheels`. Configure `CODECOV_TOKEN` for coverage uploads.
+
+To publish to both destinations in one run, dispatch on `main` with
+`release=true`, `publish=true`, and `release_type=production`. Both publishers
+consume the same verified artifact IDs/hashes without rebuilding or overwriting
+existing releases. If the version is already distributed on GitHub, leave
+`release=false` for a PyPI-only run.
+
+PyPI publication requires the `pypi` GitHub environment with human reviewers and a
+custom deployment policy allowing only `main`, plus PyPI Trusted Publishing for
+this repository, workflow filename `build-and-release-package.yml`, and environment
+`pypi`. A pending publisher does not reserve the project name. After upload, the
+workflow checks public file hashes and a clean public-PyPI install/import.
