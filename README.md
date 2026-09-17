@@ -115,6 +115,38 @@ Atomic visibility is not power-loss durability: no fsync guarantee or secure
 deletion is provided. Crashes can leave private plaintext temporary files; the
 store does not sweep them.
 
+## Installed-package typing
+
+The wheel and sdist include the PEP 561 `py.typed` marker. Type checkers can use
+the package's inline annotations through installed public imports; no
+`ignore_missing_imports` or `import-untyped` suppression is needed.
+
+`resolve()` returns `SecretReader`; `resolve_as()` preserves the requested
+capability type. Mypy 1.10.1 rejects a protocol class passed directly to a
+`type[C]` parameter with `type-abstract`, even though the resolver only checks
+`isinstance` and never constructs the capability. Use a narrow cast of the
+protocol class token with that checker:
+
+```python
+from typing import assert_type, cast
+from mountainash_secrets import (
+    ClearableSecretStore,
+    InMemorySecretStore,
+    SecretRegistryResolver,
+)
+
+resolver = SecretRegistryResolver({"local": InMemorySecretStore()})
+capability = cast(type[ClearableSecretStore], ClearableSecretStore)
+store = resolver.resolve_as("local", capability)
+assert_type(store, ClearableSecretStore)
+store.set("service.token", {"value": "dummy"})
+```
+
+This cast does not cast the store or result to `Any`; incompatible records and
+unsupported capability methods remain type errors. Concrete store classes need
+no workaround. Static typing does not replace runtime capability checks or
+establish authorization. Mypy is a development tool, not a runtime dependency.
+
 ## Candidate verification and publishing
 
 CI follows the MountainAsh PR/release conventions: pytest with coverage and Codecov,
