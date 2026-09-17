@@ -2,6 +2,7 @@
 
 Error messages MUST NOT include secret record values.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -26,7 +27,17 @@ class SecretCapabilityError(SecretStoreError):
 
 
 class SecretStoreUnavailableError(SecretStoreError):
-    """Raised when a backend/transport/IO operation fails."""
+    """Backend failure with a machine-readable ``reason``.
+
+    Ordinary positional message construction remains supported. Filesystem
+    reasons distinguish unavailable/closed/unsupported state, decode/YAML/shape
+    corruption, and committed writes whose marker cleanup failed. Consumers
+    must not parse message text or assume a failure means no mutation occurred.
+    """
+
+    def __init__(self, *args: object, reason: str = "unavailable") -> None:
+        super().__init__(*args)
+        self.reason = reason
 
 
 class SecretNotFoundError(SecretStoreError):

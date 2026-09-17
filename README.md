@@ -11,6 +11,110 @@ application composition root and handed to store adapters.
 
 See `docs/superpowers/specs/2026-06-14-secrets-store-port-design.md`.
 
+
+## Filesystem storage and ownership
+
+Provision the root directory before constructing the store. The application owns
+its users, groups, directory modes, umask, ACLs and trusted initialization path.
+The store never creates a missing root or repairs directory permissions.
+
+```python
+from pathlib import Path
+from mountainash_secrets import FilesystemSecretStore
+
+root = Path("/application/provisioned/credentials")
+with FilesystemSecretStore(root) as store:
+    with store.transaction("service.account"):
+        store.set("service.account", {"token": "dummy-example"})
+        record = store.get("service.account")
+```
+
+Application composition owns and closes injected filesystem stores. Capability
+protocols do not require `close()`, and namespace wrappers do not close shared
+stores. Namespace prefixes and capability checks are not authorization boundaries.
+
+### Root selection, privacy and lifetime
+
+Trusted deployment-controlled root/ancestor links are allowed at initialization.
+The actual opened root is pinned: retargeting its alias or assigning `base_dir`
+cannot retarget an existing instance. Construct a new instance to select a new
+root. Internal namespace and managed-file symlinks are refused.
+
+Keys retain their layout: `key` becomes `key.yaml`, `domain.key` becomes
+`domain/key.yaml`, and `domain.provider.user` becomes `domain/provider-user.yaml`.
+Missing read/cleared checks create nothing. Write/delete/transaction may create
+a namespace with requested mode `0777`, subject to application umask, default ACL
+and setgid/group inheritance. Existing directory policy is not changed.
+
+Credentials, markers and locks must be regular, singly linked files with no
+group/other permission bits. New managed files request `0600` and are checked
+before use; invalid existing entries are rejected, never chmodded or repaired.
+Credential hard links are now rejected. Unpredictable temporary files are
+exclusively created before plaintext is written; stale `.key.tmp` entries are
+unrelated and untouched. A no-writer FIFO is rejected without a blocking read.
+
+`close()` is terminal, idempotent and nonwaiting. Newly started operations,
+including entry into a previously created transaction context, fail after close.
+Already admitted operations can finish on their own handles. Active or waiting
+transactions retain their own lock until exit; close does not cancel a blocked
+flock, release another operation's lock or roll back its write. Finish operations
+before closing where possible. Context exit preserves an exception from user code.
+
+### Errors and partial completion
+
+Filesystem-generated diagnostics contain fixed messages, not keys, paths, record
+values or retained raw cause/context exceptions—even inside a caller's exception
+handler. Rejected keys/nonmapping writes raise `ValueError`; unsafe filesystem
+entries raise `PermissionError`. Other failures raise the existing
+`SecretStoreUnavailableError`; inspect its `reason`, not its message:
+
+| Reason | Meaning |
+| --- | --- |
+| `unavailable` | Backend I/O, serialization or cleanup failed; mutation may have occurred |
+| `store_closed` | New operation attempted after terminal close |
+| `unsupported_filesystem` | Required safe filesystem mechanisms are unavailable |
+| `decode_error` | Credential is not valid UTF-8 |
+| `malformed_yaml` | YAML parsing/construction/conversion failed |
+| `invalid_record_shape` | Parsed credential is not a mapping, including empty/null |
+| `write_committed_cleanup_failed` | New credential committed, marker cleanup failed |
+
+A genuinely missing credential returns `None`; corrupt empty/null files do not.
+No raw diagnostic mode is provided. Records themselves are plaintext dictionaries,
+not redacting containers. This does not redact caller exceptions or debugger
+captures of arbitrary memory.
+
+Atomic replacement is the write commit point. Before it, a failed write preserves
+the old credential and marker; cleanup removes only the operation's owned temp
+when possible. Cleanup failure can leave a private temporary file.
+After replacement, failed marker cleanup raises
+`write_committed_cleanup_failed` without rolling back the new record.
+`get()` still reads that record; a surviving valid marker makes `is_cleared()`
+true, while an invalid marker is rejected. An explicit subsequent write under
+application-owned `transaction()` coordination can restore ordinary
+live-record/absent-marker state. There is no automatic retry or recovery.
+
+Delete is not a two-file atomic operation: marker creation can fail after the
+credential has been removed, leaving absence without a marker. A pre-existing
+invalid marker is rejected *before* credential removal.
+
+### Filesystem limits
+
+This backend requires local POSIX descriptor-relative operations and `fcntl.flock`.
+Direct reads/writes/deletes do not lock automatically. All participants must use
+the same stable lock inode; locks are never replaced to bypass contention.
+No nested/reentrant transaction, fairness, timeout, NFS/CIFS or Windows guarantee
+is provided. Verification on Linux does not certify macOS.
+
+The application must prevent untrusted directory mutation and secure initial root
+selection. Descriptor pinning and no-follow inode checks are not a hostile
+same-UID/administrator sandbox. Name-to-inode inspection followed by
+unlink/replace/flock is not atomic against a later directory writer. Privileged
+relocation of an opened directory is outside this boundary.
+
+Atomic visibility is not power-loss durability: no fsync guarantee or secure
+deletion is provided. Crashes can leave private plaintext temporary files; the
+store does not sweep them.
+
 ## Candidate verification and publishing
 
 CI follows the MountainAsh PR/release conventions: pytest with coverage and Codecov,
