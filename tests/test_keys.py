@@ -48,10 +48,10 @@ def test_empty_is_deterministic_valid_segment():
 
 
 def test_encoded_segment_roundtrips_through_filesystem_store(tmp_path):
-    store = FilesystemSecretStore(base_dir=tmp_path)
-    key = f"oura.{to_key_segment('margot@example.com')}"
-    store.set(key, {"access_token": "t"})
-    assert store.get(key) == {"access_token": "t"}
+    with FilesystemSecretStore(base_dir=tmp_path) as store:
+        key = f"oura.{to_key_segment('margot@example.com')}"
+        store.set(key, {"access_token": "t"})
+        assert store.get(key) == {"access_token": "t"}
 
 
 def test_validate_segment_raises_on_bad():

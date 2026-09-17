@@ -1,4 +1,5 @@
 """Behavioral conformance suite — runs identical semantics over every writer store."""
+
 import threading
 import time
 
@@ -11,14 +12,16 @@ from mountainash_secrets.stores.namespaced import NamespacedSecretStore
 @pytest.fixture(params=["memory", "filesystem"])
 def store(request, tmp_path):
     if request.param == "memory":
-        return InMemorySecretStore()
-    return FilesystemSecretStore(tmp_path)
+        yield InMemorySecretStore()
+    else:
+        with FilesystemSecretStore(tmp_path) as filesystem:
+            yield filesystem
 
 
 def test_set_get_round_trips_nested_json_record(store):
     record = {
         "access_token": "tok",
-        "expires_at": 1718000000,          # int epoch — JSON-native convention
+        "expires_at": 1718000000,  # int epoch — JSON-native convention
         "scopes": ["read", "write"],
         "meta": {"nested": True, "n": 1.5, "absent": None},
     }
