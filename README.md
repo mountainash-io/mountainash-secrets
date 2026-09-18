@@ -1,15 +1,45 @@
 # mountainash-secrets
 
 A capability-graded secret-store port: one protocol family
-(`SecretReader` → `SecretWriter` → `ClearableStore`, plus `VersionedReader`)
+(`SecretReader` → `SecretWriter` → `ClearableSecretStore`, plus `VersionedSecretReader`)
 with pluggable stores (in-memory, filesystem, env) and an injected resolver.
 Requires Python 3.12 or later.
 
 The package authenticates nothing and depends on neither `mountainash-settings`
-nor `mountainash-auth-client`. Authenticated SDK clients are built by the
-application composition root and handed to store adapters.
+nor `mountainash-auth-client`. Application composition constructs stores and
+injects a `SecretRegistryResolver`; the resolver selects preconstructed objects,
+not plugins or authenticated SDK clients.
 
-See `docs/superpowers/specs/2026-06-14-secrets-store-port-design.md`.
+## Installation and shipped capabilities
+
+Install the selected verified candidate wheel by passing its local path to
+`python -m pip install`. Candidate builds are not evidence of PyPI publication;
+public-index installation remains a separate release gate.
+
+The only runtime dependency is PyYAML. No cloud adapters or SDK extras are shipped:
+`aws`, `azure`, `gcp`, `hashicorp` and aggregate `all` have been removed. Consumers
+must stop requesting those extras; applications using SDKs directly own those
+dependencies independently.
+
+| Public implementation | Capability and boundary |
+| --- | --- |
+| `InMemorySecretStore` | Clearable records; deep-copy isolation and cooperative single-process transactions |
+| `FilesystemSecretStore` | Clearable YAML records; application-provisioned root and local POSIX locking |
+| `EnvReader` | Read-only environment lookup |
+| `NamespacedSecretStore` | Trusted prefix wrapper over an injected clearable store; not tenant isolation |
+
+`VersionedSecretReader` is an extension protocol, not an implemented versioned
+store or cloud service. Runtime capability checks establish method availability,
+not authorization or semantic correctness.
+
+Public package imports load the filesystem module and require `fcntl`, even when
+only memory/environment stores are selected. Windows imports are not supported.
+Filesystem acceptance has been exercised on Linux; macOS is not certified by that
+evidence. NFS/CIFS and distributed locking are outside the supported contract.
+
+The [historical design](https://github.com/mountainash-io/mountainash-central/blob/main/04.planning/mountainash-secrets/superpowers/specs/2026-06-14-secrets-store-port-design.md)
+is a draft planning reference, not a shipped capability list or an approved
+consumer migration. The usage and limitations below are self-contained.
 
 
 ## Filesystem storage and ownership
@@ -20,14 +50,39 @@ The store never creates a missing root or repairs directory permissions.
 
 ```python
 from pathlib import Path
-from mountainash_secrets import FilesystemSecretStore
+from tempfile import TemporaryDirectory
+from typing import cast
+from mountainash_secrets import (
+    ClearableSecretStore,
+    FilesystemSecretStore,
+    SecretRegistryResolver,
+)
 
-root = Path("/application/provisioned/credentials")
-with FilesystemSecretStore(root) as store:
-    with store.transaction("service.account"):
-        store.set("service.account", {"token": "dummy-example"})
-        record = store.get("service.account")
+with TemporaryDirectory() as temporary:
+    root = Path(temporary) / "credentials"
+    root.mkdir(mode=0o700)  # Example application policy, not a library requirement.
+    with FilesystemSecretStore(root) as filesystem:
+        resolver = SecretRegistryResolver({"local": filesystem})
+        capability = cast(type[ClearableSecretStore], ClearableSecretStore)
+        store = resolver.resolve_as("local", capability)
+        with store.transaction("service.account"):
+            assert store.get("service.account") is None
+            assert not store.is_cleared("service.account")
+            store.set("service.account", {"token": "dummy-example"})
+            assert store.get("service.account") == {"token": "dummy-example"}
+            store.delete("service.account")
+            assert store.get("service.account") is None
+            assert store.is_cleared("service.account")
+            store.set("service.account", {"token": "dummy-replacement"})
+            assert not store.is_cleared("service.account")
+            assert store.get("service.account") == {"token": "dummy-replacement"}
 ```
+
+Deletion leaves a tombstone: `is_cleared()` distinguishes deliberately cleared
+records from never-set keys; a successful subsequent write removes that marker.
+The outer context owns the store handle; `transaction()` only coordinates
+participating operations on one key and does not close the store. The narrow
+protocol-token cast supports Mypy 1.10.1; see [installed typing](#installed-package-typing).
 
 Application composition owns and closes injected filesystem stores. Capability
 protocols do not require `close()`, and namespace wrappers do not close shared
@@ -39,6 +94,10 @@ Trusted deployment-controlled root/ancestor links are allowed at initialization.
 The actual opened root is pinned: retargeting its alias or assigning `base_dir`
 cannot retarget an existing instance. Construct a new instance to select a new
 root. Internal namespace and managed-file symlinks are refused.
+
+Filesystem keys are dot-separated nonempty segments matching `[a-z0-9_]+`.
+Use the public `to_key_segment()` helper for arbitrary identifiers rather than
+embedding emails, uppercase strings or path separators directly in a key.
 
 Keys retain their layout: `key` becomes `key.yaml`, `domain.key` becomes
 `domain/key.yaml`, and `domain.provider.user` becomes `domain/provider-user.yaml`.

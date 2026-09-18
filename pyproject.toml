@@ -23,19 +23,6 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
-[project.optional-dependencies]
-aws = ["boto3>=1.29.0"]
-azure = ["azure-keyvault-secrets>=4.8.0", "azure-identity>=1.16.0"]
-gcp = ["google-cloud-secret-manager>=2.18.0"]
-hashicorp = ["hvac>=2.1.0"]
-all = [
-    "boto3>=1.29.0",
-    "azure-keyvault-secrets>=4.8.0",
-    "azure-identity>=1.16.0",
-    "google-cloud-secret-manager>=2.18.0",
-    "hvac>=2.1.0",
-]
-
 [project.urls]
 Documentation = "https://github.com/mountainash-io/mountainash-secrets#readme"
 Issues = "https://github.com/mountainash-io/mountainash-secrets/issues"
@@ -71,8 +58,7 @@ exclude_lines = ["no cov", "if __name__ == .__main__:", "if TYPE_CHECKING:"]
 # Tool: Mypy
 #================
 [tool.mypy]
-# Optional cloud SDKs (boto3/azure/google/hvac) are not installed in the type
-# env, and internal mountainash siblings ship no py.typed marker — treat
-# unresolved/untyped third-party imports as Any rather than noise.
+# Keep the existing third-party typing policy; installed consumers are verified
+# separately without these import suppressions.
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
